@@ -211,19 +211,19 @@ subroutine update
     end do
     !$acc end parallel loop
 ! Thermostat
-!    if (mod(int(tt/dt),100)==0) then
-!        theoryke=1.50d0*dfloat(n_part)*kbT
-!        scalef=dsqrt(theoryke/ke)
-!        vx=vx*scalef
-!        vy=vy*scalef
-!        vz=vz*scalef
-!        ke=0.0d0
-!        !$acc parallel loop present(fx,fy,fz,x,y,z,xp,yp,zp,xnew,ynew, znew,vx,vy,vz)
-!        do i=1,n_part
-!            !$acc atomic
-!            ke=ke+0.50d0*(vx(i)*vx(i)+vy(i)*vy(i)+vz(i)*vz(i))
-!        end do
-!    end if
+    if (mod(int(tt/dt),100)==0) then
+        theoryke=1.50d0*dfloat(n_part)*kbT
+        scalef=dsqrt(theoryke/ke)
+        vx=vx*scalef
+        vy=vy*scalef
+        vz=vz*scalef
+        ke=0.0d0
+        !$acc parallel loop present(fx,fy,fz,x,y,z,xp,yp,zp,xnew,ynew, znew,vx,vy,vz)
+        do i=1,n_part
+            !$acc atomic
+            ke=ke+0.50d0*(vx(i)*vx(i)+vy(i)*vy(i)+vz(i)*vz(i))
+        end do
+    end if
     
     !$acc parallel loop present(fx,fy,fz,x,y,z,xp,yp,zp,xnew,ynew, znew,vx,vy,vz)
     do i = 1, n_part
