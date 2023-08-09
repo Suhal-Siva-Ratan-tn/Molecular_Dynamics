@@ -8,7 +8,5 @@ The primary goal of this project is to simulate the interactions and movements o
 Run the following commands based on the file
 For md.c file: 
 ```gcc md.c -lm```
-For md.c file using OpenACC: nvc -acc -Minfo=accel md.c
-For md.cu file: nvcc md.cu -lcublas
-For md2.f90 file: gfortran md2.f90
-For md2.f90 file using OpenACC: nvfortran -acc -Minfo=accel md2.f90
+
+
