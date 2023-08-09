@@ -5,8 +5,6 @@ The primary goal of this project is to simulate the interactions and movements o
 
 ## Usage
 
-Run the following commands based on the file
-
 To compile the `md.c` file, use the following command to include the math library: 
 
 ```bash
