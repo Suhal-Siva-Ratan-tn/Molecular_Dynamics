@@ -7,6 +7,6 @@ The primary goal of this project is to simulate the interactions and movements o
 
 Run the following commands based on the file
 For md.c file: 
-~~~gcc md.c -lm~~~
+``` ~~~ gcc md.c -lm ~~~ ```
 
 
