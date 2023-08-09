@@ -6,7 +6,4 @@ The primary goal of this project is to simulate the interactions and movements o
 ## Usage
 
 Run the following commands based on the file
-For md.c file: 
-To compile the md.c file, use the following command: `gcc md.c -lm`.
-
-
+To compile the md.c file, use the following command: gcc md.c -lm.
