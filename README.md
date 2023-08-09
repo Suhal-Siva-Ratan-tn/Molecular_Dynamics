@@ -1,4 +1,13 @@
-# Molecular_Dynamics
+# Molecular_Dynamics(MD)
 
 ## Introduction
-The primary goal of this project is to simulate the interactions and movements of particles (atoms, molecules) over time using the Molecular Dynamics approach. The simulation calculates forces between particles, integrates their equations of motion, and produces trajectories that capture the system's behavior. This repository provides both the code and documentation necessary to run and understand the simulation.
+The primary goal of this project is to simulate the interactions and movements of particles (atoms, molecules) over time using the Molecular Dynamics approach. The simulation calculates forces between particles, integrates their equations of motion, and produces trajectories that capture the system's behavior. This repository provides the code in FORTRAN, C, and CUDA C languages. The provided FORTRAN and C files for Molecular Dynamics implementation also offer compatibility with OPENACC mode.
+
+## Usage
+
+Run the following commands based on the file
+For md.c file: gcc md.c -lm
+For md.c file using OpenACC: nvc -acc -Minfo=accel md.c
+For md.cu file: nvcc md.cu -lcublas
+For md2.f90 file: gfortran md2.f90
+For md2.f90 file using OpenACC: nvfortran -acc -Minfo=accel md2.f90
