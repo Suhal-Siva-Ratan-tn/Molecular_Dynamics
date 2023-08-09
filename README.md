@@ -9,3 +9,28 @@ To compile the `md.c` file, use the following command to include the math librar
 
 ```bash
 gcc md.c -lm
+```
+
+To compile the `md.c` file with OpenACC support, use the following command:
+
+```bash
+nvc -acc -Minfo=accel md.c
+```
+
+To compile the `md2.f90` file, use the following command:
+
+```bash
+gfortran md2.f90
+```
+
+To compile the `md2.f90` file with OpenACC support, use the following command:
+
+```bash
+nvfortran -acc -Minfo=accel md2.f90
+```
+
+To compile the `md.cu` file, use the following command to include cuBLAS library:
+
+```bash
+nvcc md.cu -lcublas
+```
