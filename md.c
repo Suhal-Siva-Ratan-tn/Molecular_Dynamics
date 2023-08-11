@@ -3,15 +3,12 @@
 #include<math.h>
 #include<time.h>
 
-// #include <cuda/std/atomic>
-
 #define n_part 3000
 
 const double T=1.0, m=1.0, kbT=1.0;
 double lx=20.0, ly=20.0, lz=20.0, sigma=1.0, eps =4.0, rc= 3.0, del_r=0.05, del_v=0.05;
 const double tf=50.0, dt=0.005;
 const double dt2 = dt*dt;
-
 
 double velinit(double* vx, double* vy, double* vz,int n){
     double avg_vx, avg_vy, avg_vz,ke;
@@ -77,14 +74,14 @@ double calcforces(double* fx, double* fy, double* fz,double* x, double* y, doubl
     int i,j;
     pe = 0.0;
 
-    #pragma acc parallel loop
+    #pragma acc parallel loop present(fx,fy,fz)
     for(i=0; i<n_part; i++){
         fx[i] = 0.0; 
         fy[i] = 0.0;
         fz[i] = 0.0;
     }
 
-    #pragma acc parallel loop
+    #pragma acc parallel loop present(x,y,z,fx,fy,fz)
     for(i=0; i<n_part; i++){
     x1 = x[i];
     y1 = y[i];
@@ -133,7 +130,7 @@ double update(double*fx, double* fy, double* fz, double* x, double* y, double* z
     double ke;
     ke =0.0;
     int thermo_check= (tt/0.005);
-    #pragma acc parallel loop reduction(+:ke)
+    #pragma acc parallel loop reduction(+:ke) present(x,y,z,fx,fy,fz,xp,yp,zp,xnew,ynew,znew,vx,vy,vz)
     for(i=0;i<n_part;i++){
         xnew[i] = 2.0*x[i]-xp[i]+fx[i]*dt2;
         ynew[i] = 2.0*y[i]-yp[i]+fy[i]*dt2;
@@ -148,7 +145,7 @@ double update(double*fx, double* fy, double* fz, double* x, double* y, double* z
     }
 
     if (thermo_check %100 == 0) printf("%lf\t", ke/n_part);
-    // printf("Thermo check at %lf : %d\n",tt, thermo_check );
+    
 
     // Thermostat
 
@@ -156,25 +153,25 @@ double update(double*fx, double* fy, double* fz, double* x, double* y, double* z
         double theoryke = 1.50*n_part*kbT;
         double scalef = sqrt(theoryke)/sqrt(ke);
         
-        #pragma acc parallel loop  
+        #pragma acc parallel loop present(vx,vy,vz)
         for(int i=0; i<n_part; i++){
             vx[i] = vx[i]*scalef;
             vy[i] = vy[i]*scalef;
             vz[i] = vz[i]*scalef;
         }
-        // printf("%lf %lf\n", theoryke/ke,scalef);
+        
         double lol=0.0;
-        #pragma acc parallel loop reduction(+:lol)
+        #pragma acc parallel loop reduction(+:lol) present(vx,vy,vz)
         for(int i=0; i<n_part; i++){
             
             lol = lol+0.5*(vx[i]*vx[i]+vy[i]*vy[i]+vz[i]*vz[i]);
         }
         
         ke=lol;
-        // printf("%lf %lf\n", lol,ke);
+        
     }
     
-    #pragma acc loop gang
+    #pragma acc parallel loop gang present(x,y,z,xp,yp,zp,xnew,ynew,znew,vx,vy,vz)
     for(i=0; i<n_part; i++){
         xnew[i] = xp[i]+2.0*vx[i]*dt;
         ynew[i] = yp[i]+2.0*vy[i]*dt;
@@ -215,14 +212,12 @@ double update(double*fx, double* fy, double* fz, double* x, double* y, double* z
             zp[i] = zp[i]+lz;
         }
     }
-    // printf("%lf\n", ke/n_part);
+   
     return ke/n_part;
 }
 
 int main(){
     
-    // const int max_neigh=(n_part/(lx*ly*lz))*(4.0*3.140*rs/3), max_len_pc=lxby2/del_r, v_max_MB= (80);
-
     double vx[n_part], vy[n_part], vz[n_part];
     double x[n_part], y[n_part], z[n_part];
     double xp[n_part], yp[n_part], zp[n_part];
@@ -232,26 +227,33 @@ int main(){
     double ke, pe;
     double tt;
     int i;
-
+    
+    //Initialization of particles' positions
     printf("%lf %lf\n", T, m);
     FILE *f1 = fopen("intial_pos.txt", "r");
     FILE *f2 = fopen("energy.dat", "w");
     for (i = 0; i < n_part; i++) {
         fscanf(f1, "%lf %lf %lf", &x[i], &y[i], &z[i]);
-        // printf("%lf %lf %lf\n", x[i], y[i], z[i]);
     }
     fclose(f1);
     
+    //Initialization of particles' velocities
     ke = velinit(vx,vy,vz,n_part);
-    // for (i = 0; i < n_part; i++) {
-    //     printf("Particle Number %d: %lf\t%lf\t%lf\n", i, vx[i],vy[i],vz[i]);
+    
+    //Copying arrays from host to device
+    #pragma acc enter data copyin(x,y,z)
+    #pragma acc enter data copyin(fx,fy,fz)
+    #pragma acc enter data copyin(xp,yp,zp)
+    #pragma acc enter data copyin(xnew,ynew,znew)
+    #pragma acc enter data copyin(vx,vy,vz)
 
-    // }
-    // for(i=0; i<n_part; i++){
-    //     printf("%d %lf\n",i,fx[i]);
-    // }
+    //Forces and Potential enregy calculation
     pe=calcforces(fx,fy,fz,x,y,z);
+
     printf("KE: %lf \t PE: %lf\n", ke,pe);
+
+    //Predicting positions at t = -dt
+    #pragma acc parallel loop present(x,y,z)
     for (i = 0; i < n_part; i++) {
         xp[i] = x[i] - vx[i] * dt;
         yp[i] = y[i] - vy[i] * dt;
@@ -259,9 +261,7 @@ int main(){
     }
 
     ke=update(fx,fy,fz,x,y,z,xp,yp,zp,xnew,ynew,znew,vx,vy,vz, 0.05);
-    // for(i=0; i<n_part; i++){
-    //     printf("%d %lf\n",i,fx[i]);
-    // }
+   
     tt = dt;
 
     while(tt<=tf){
@@ -271,5 +271,13 @@ int main(){
         fprintf(f2,"%lf\t %lf \t %lf \t %lf \n", tt,ke,pe,ke+pe);
         tt = tt+dt;
     }
+
+    //Deallocation of arrays from the Device Memory
+    #pragma acc exit data delete(x,y,z)
+    #pragma acc exit data delete(fx,fy,fz)
+    #pragma acc exit data delete(xp,yp,zp)
+    #pragma acc exit data delete(xnew,ynew,znew)
+    #pragma acc exit data delete(vx,vy,vz)
+
     return 0;
 }
