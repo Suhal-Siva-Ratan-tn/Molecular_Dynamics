@@ -363,6 +363,21 @@ int main(){
     }
 
     cublasDestroy(handle);
+    cudaFree(x_d);
+    cudaFree(y_d);
+    cudaFree(z_d);
+    cudaFree(xp_d);
+    cudaFree(yp_d);
+    cudaFree(zp_d);
+    cudaFree(xnew_d);
+    cudaFree(ynew_d);
+    cudaFree(znew_d);
+    cudaFree(fx_d);
+    cudaFree(fy_d);
+    cudaFree(fz_d);
+    cudaFree(vx_d);
+    cudaFree(vy_d);
+    cudaFree(vz_d);
     return 0;
 }
 
