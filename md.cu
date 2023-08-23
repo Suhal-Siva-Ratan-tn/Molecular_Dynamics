@@ -16,6 +16,13 @@
 const double kbT=1.0;
 __device__  double sigma=1.0, eps =4.0, rc= 3.0, del_r=0.05, del_v=0.05;
 const double tf=50.0, dt=0.005, v_max=sqrt(8);
+__device__  double dt2 = 0.005*0.005;
+__device__ double sigma6 = 1.0;
+__device__ double sigma12 = 1.0;
+__device__ double fc = -0.002735957519*4.0;// eps * ((12.0 * 1 / pow(rc, 13)) - (6.0 * 1 / pow(rc, 7)));
+__device__ double ufc = -0.005479441744; //eps * ((pow(sigma / rc, 12)) - pow(sigma / rc, 6)) + fc * rc;
+
+
 
 
 
@@ -72,66 +79,47 @@ double velinit(double* vx, double* vy, double* vz,int n){
     
 }
 
-__global__ void calcforces(double* lj, double* ljforces_x, double* ljforces_y, double* ljforces_z, double* x, double* y, double* z){
-    // unsigned int tid = threadIdx.x;
-
-
-    //Initializing required parameters
-    int idx = threadIdx.x + blockDim.x * blockIdx.x;
+__global__ void calcforces(double* lj, double* ljforces_x, double* ljforces_y, double* ljforces_z, double* x, double* y, double* z) {
+    int idx= threadIdx.x + blockDim.x * blockIdx.x;
     int idy = threadIdx.y + blockDim.y * blockIdx.y;
-    int id2 = idx * n_part + idy;
-    double sigma6 = pow(sigma, 6), sigma12 = pow(sigma, 12);
-    double fc = eps * ((12.0 * sigma12 / pow(rc, 13)) - (6.0 * sigma6 / pow(rc, 7)));
-    double ufc = eps * ((pow(sigma / rc, 12)) - pow(sigma / rc, 6)) + fc * rc;
+    int id2 = idy * n_part + idx;
 
-
-    if(idx < n_part && idy < n_part){
-        
+    if (idx < n_part && idy < n_part) {
         double dx = x[idx] - x[idy];
         double dy = y[idx] - y[idy];
         double dz = z[idx] - z[idy];
         double ljforces = 0.0;
 
-        //Nearest-Image Convention
-        if (fabs(dx) >= lx/2) dx = (lx-fabs(dx))*((-1.0*dx)/fabs(dx));
-        if (fabs(dy) >= ly/2) dy = (ly-fabs(dy))*((-1.0*dy)/fabs(dy));
-        if (fabs(dz) >= lz/2) dz = (lz-fabs(dz))*((-1.0*dz)/fabs(dz));
+        // Nearest-Image Convention
+        if (fabs(dx) >= lx / 2) dx = (lx - fabs(dx)) * ((-1.0 * dx) / fabs(dx));
+        if (fabs(dy) >= ly / 2) dy = (ly - fabs(dy)) * ((-1.0 * dy) / fabs(dy));
+        if (fabs(dz) >= lz / 2) dz = (lz - fabs(dz)) * ((-1.0 * dz) / fabs(dz));
 
-        double dr2 = dx*dx + dy*dy + dz*dz;
-        double dr  = sqrt(dr2);
-        double dr6  = dr2*dr2*dr2;
-        double dr12 = dr6*dr6;
-        
+        double dr2 = dx * dx + dy * dy + dz * dz;
+        double dr = sqrt(dr2);
+        double dr6 = dr2 * dr2 * dr2;
+        double dr12 = dr6 * dr6;
 
-       
-        //Force Calculation based on the cutoff distance rc
         if (dr <= rc && idx != idy) {
+            lj[id2] = eps * ((sigma12 / dr12) - (sigma6 / dr6)) - ufc + fc * dr;
+            ljforces = eps * ((12.0 * (sigma12 / (dr12 * dr)) - (6.0 * (sigma6 / (dr6 * dr))))) - fc;
 
-            lj[id2] = eps*((sigma12/dr12)-(sigma6/dr6))-ufc+fc*dr;
-            ljforces = eps*((12.0*(sigma12/(dr12*dr)))-(6.0*(sigma6/(dr6*dr))))-fc;
-            
-            ljforces_x[id2] = ljforces*dx/dr;
-            ljforces_y[id2] = ljforces*dy/dr;
-            ljforces_z[id2] = ljforces*dz/dr;
-           
-        }
-
-        else{
-
+            ljforces_x[id2] = ljforces * dx / dr;
+            ljforces_y[id2] = ljforces * dy / dr;
+            ljforces_z[id2] = ljforces * dz / dr;
+        } else {
             lj[id2] = 0.0;
             ljforces_x[id2] = 0.0;
             ljforces_y[id2] = 0.0;
             ljforces_z[id2] = 0.0;
-
         }
-        __syncthreads();
-        
+        // __syncthreads();
     }
 }
 
+
 __global__ void updatepos(double* vsq, double*fx, double* fy, double* fz, double* x, double* y, double* z, double* xp, double* yp, double* zp, double* xnew, double* ynew, double* znew, double* vx,double* vy,double* vz){
  
-    const double dt2 = dt*dt;
     unsigned int i = threadIdx.x + blockDim.x * blockIdx.x;
 
     //Updating Postions and Velocities(Verlet's Algorithm)
@@ -246,7 +234,7 @@ int main(){
     dim3 blocksize(tpb,tpb);
     dim3 gridsize((n_part+blocksize.x-1)/blocksize.x, (n_part+blocksize.y-1)/blocksize.y);
 
-    dim3 block_pos(8*tpb);
+    dim3 block_pos(32*tpb);
     dim3 gridsize_pos((n_part+block_pos.x-1)/block_pos.x);
 
     cublasHandle_t handle;
@@ -325,7 +313,7 @@ int main(){
     
     int thermo_check;
     theoryke = 1.50*kbT;
-     
+    time_t istart = time(NULL);
     while(tt <= tf){
 
         // calculating lj potential and ljforces component matrices
@@ -362,6 +350,8 @@ int main(){
         tt = tt+dt;
     }
 
+    time_t end = time(NULL)-istart;
+    printf("%f",end);
     cublasDestroy(handle);
     cudaFree(x_d);
     cudaFree(y_d);
@@ -378,6 +368,6 @@ int main(){
     cudaFree(vx_d);
     cudaFree(vy_d);
     cudaFree(vz_d);
+
     return 0;
 }
-
