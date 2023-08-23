@@ -32,5 +32,5 @@ nvfortran -acc -Minfo=accel md2.f90
 To compile the `md.cu` file, use the following command to include cuBLAS library:
 
 ```bash
-nvcc md.cu -lcublas
+nvcc --cuda md.cu -lcublas --use_fast_math -O3
 ```
